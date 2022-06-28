@@ -40,11 +40,10 @@ public class RequestHandler extends Thread {
             String uri = headers.get(0).split(" ")[1];
 
 
-            byte[] body = "hello world".getBytes(StandardCharsets.UTF_8);
-            if(uri.equals("/index.html")){
-                body = Files.readAllBytes(Path.of("./webapp" + uri));
+            if(uri.equals("/")){
+                uri = "/index.html";
             }
-
+            byte[] body = Files.readAllBytes(Path.of("./webapp" + uri));
             response200Header(dos, body.length);
             responseBody(dos, body);
         } catch (IOException e) {
