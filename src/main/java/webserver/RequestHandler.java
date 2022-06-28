@@ -1,10 +1,11 @@
 package webserver;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,9 +24,27 @@ public class RequestHandler extends Thread {
                 connection.getPort());
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
-            // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
+            // 3.4.3.1 요구사항 1
+            // /index.html에 접속 했을 떄 webapp디렉토리의 index.html 파일 읽어 응답하기
             DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = "Hello World".getBytes();
+            BufferedReader requestReader = new BufferedReader(new InputStreamReader(in));
+
+            ArrayList<String> headers = new ArrayList<>();
+
+            //헤더를 모두 읽어 오기
+            while(true){
+                String line = requestReader.readLine();
+                if(line == null || line.isEmpty()) break;
+                headers.add(line);
+            }
+            String uri = headers.get(0).split(" ")[1];
+
+
+            byte[] body = "hello world".getBytes(StandardCharsets.UTF_8);
+            if(uri.equals("/index.html")){
+                body = Files.readAllBytes(Path.of("./webapp" + uri));
+            }
+
             response200Header(dos, body.length);
             responseBody(dos, body);
         } catch (IOException e) {
