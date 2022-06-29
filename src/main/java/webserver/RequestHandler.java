@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import db.DataBase;
 import model.User;
@@ -18,11 +19,59 @@ import javax.xml.crypto.Data;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
-
+    private static Map<String, Controller> controllerMap;
     private Socket connection;
 
     public RequestHandler(Socket connectionSocket) {
         this.connection = connectionSocket;
+    }
+
+    static{
+        controllerMap = new ConcurrentHashMap<>();
+        controllerMap.put("/user/create", new AbstractController() {
+            @Override
+            public void doPost(HttpRequest req, HttpResponse res) {
+                try {
+                    User user = new User(req.getParameter("userId"), req.getParameter("password")
+                            , req.getParameter("name"), req.getParameter("email"));
+                    DataBase.addUser(user);
+                    res.sendRedirect("/");
+                }catch (IOException e){log.error(e.getMessage());}
+            }
+        });
+
+        controllerMap.put("/user/login", new AbstractController() {
+            @Override
+            public void doPost(HttpRequest req, HttpResponse res) {
+                try{
+                    User findUser = DataBase.findUserById(req.getParameter("userId"));
+                    if (isLoginSuccess(findUser, req.getParameter("password"))) {
+                        res.addHeader("Set-Cookie", "isLogined=true; Path=/");
+                        res.sendRedirect("/");
+                    } else {
+                        res.addHeader("Set-Cookie", "isLogined=false; Path=/");
+                        res.sendRedirect("/user/login_failed.html");
+                    }
+                }catch (IOException e){log.error(e.getMessage());}
+
+            }
+        });
+        controllerMap.put("/user/list", new AbstractController() {
+            @Override
+            public void doGet(HttpRequest req, HttpResponse res) {
+                try{
+                    String isLogined = req.getCookie("isLogined");
+                    if(Boolean.parseBoolean(isLogined)){
+                        Collection<User> users = DataBase.findAll();
+                        StringBuilder sb = createHTMLData(users);
+                        res.forward(sb.toString().getBytes(StandardCharsets.UTF_8));
+                    }
+                    else{
+                        res.sendRedirect("/user/login.html");
+                    }
+                }catch (IOException e){log.error(e.getMessage());}
+            }
+        });
     }
 
     public void run() {
@@ -33,52 +82,21 @@ public class RequestHandler extends Thread {
             HttpRequest req = new HttpRequest(in);
             HttpResponse res = new HttpResponse(out);
 
-            //uri에 따른 처리
-            if(req.getMethod().equals("POST") && req.getUri().equals("/user/create")){
-
-                User user = new User(req.getParameter("userId"), req.getParameter("password")
-                ,req.getParameter("name"), req.getParameter("email"));
-                DataBase.addUser(user);
-                res.sendRedirect("/");
+            Controller controller = controllerMap.get(req.getUri());
+            if(controller == null){
+                if(req.getUri().endsWith(".css")) res.forward(req.getUri(), HttpResponse.FileType.CSS);
+                else if(req.getUri().equals(".js")) res.forward(req.getUri(),  HttpResponse.FileType.JS);
+                else res.forward(req.getUri(), HttpResponse.FileType.HTML);
+                return;
             }
-            else if(req.getMethod().equals("POST") && req.getUri().equals("/user/login")){
-
-                User findUser = DataBase.findUserById(req.getParameter("userId"));
-                if(isLoginSuccess(findUser, req.getParameter("password"))){
-                    res.addHeader("Set-Cookie", "isLogined=true; Path=/");
-                    res.sendRedirect("/");
-                }
-                else{
-                    res.addHeader("Set-Cookie", "isLogined=false; Path=/");
-                    res.sendRedirect("/user/login_failed.html");
-                }
-
-            }
-
-            else if(req.getMethod().equals("GET") && req.getUri().equals("/user/list")){
-                String isLogined = req.getCookie("isLogined");
-                if(Boolean.parseBoolean(isLogined)){
-                    Collection<User> users = DataBase.findAll();
-                    StringBuilder sb = createHTMLData(users);
-                    res.forward(sb.toString().getBytes(StandardCharsets.UTF_8));
-                }
-                else{
-                    res.sendRedirect("/user/login.html");
-                }
-            }
-            else if(req.getMethod().equals("GET") && req.getUri().endsWith(".css")){
-                res.forward(req.getUri(), HttpResponse.FileType.CSS);
-            }
-            else{
-                res.forward(req.getUri().equals("/") ? "/index.html" : req.getUri(), HttpResponse.FileType.HTML);
-            }
+            controller.service(req, res);
 
         } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
 
-    private StringBuilder createHTMLData(Collection<User> users) {
+    private static StringBuilder createHTMLData(Collection<User> users) {
 
         StringBuilder sb = new StringBuilder();
         sb.append("<table border='1'>");
@@ -93,7 +111,7 @@ public class RequestHandler extends Thread {
         return sb;
     }
 
-    private boolean isLoginSuccess(User user, String pw){
+    private static boolean isLoginSuccess(User user, String pw){
         if(user == null) return false;
         if(!user.getPassword().equals(pw)) return false;
         return true;

@@ -12,7 +12,7 @@ import java.util.Map;
 
 public class HttpResponse {
     public enum FileType{
-        HTML("text/html"), CSS("text/css"), JS("text/javascript");
+        HTML("text/html;charset=utf-8"), CSS("text/css"), JS("text/javascript");
         private String contentType;
 
         public String getContentType() {
