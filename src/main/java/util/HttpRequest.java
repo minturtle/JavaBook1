@@ -13,9 +13,11 @@ public class HttpRequest {
     private String method;
     private String uri;
     private Map<String, String> body;
+    private StringBuilder sb;
 
     public HttpRequest(InputStream request)throws IOException {
         BufferedReader requestReader = new BufferedReader(new InputStreamReader(request));
+        sb = new StringBuilder();
         parseHeader(requestReader);
         parseBody(requestReader);
     }
@@ -25,13 +27,16 @@ public class HttpRequest {
 
         int bodyLength = Integer.parseInt(headerMap.get("Content-Length"));
         String bodyString = IOUtils.readData(requestReader, bodyLength);
+        sb.append("\r\n").append(bodyString).append("\r\n");
         body = HttpRequestUtils.parseQueryString(bodyString);
     }
 
     //헤더 파싱
     private void parseHeader(BufferedReader requestReader) throws IOException {
         String line = requestReader.readLine();
+
         if(line == null) return;
+        sb.append(line).append("\r\n");
 
         String[] temp = line.split(" ");
         method = temp[0].trim().toUpperCase(Locale.ROOT);
@@ -41,6 +46,7 @@ public class HttpRequest {
         while(true){
             line = requestReader.readLine();
             if(line == null || line.isEmpty()) break;
+            sb.append(line).append("\r\n");
             String[] header = line.split(": ");
             headerMap.put(header[0].trim(), header[1].trim());
         }
@@ -63,5 +69,10 @@ public class HttpRequest {
 
     public String getUri() {
         return uri;
+    }
+
+    @Override
+    public String toString() {
+        return sb.toString();
     }
 }
