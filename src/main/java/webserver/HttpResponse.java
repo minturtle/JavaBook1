@@ -1,12 +1,12 @@
-package util;
+package webserver;
 
 import java.io.DataOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,9 +27,9 @@ public class HttpResponse {
     private Map<String, String> headers;
     private DataOutputStream dos;
 
-    public HttpResponse(DataOutputStream dos) {
+    public HttpResponse(OutputStream os) {
         headers = new HashMap<>();
-        this.dos = dos;
+        this.dos = new DataOutputStream(os);
     }
 
     public HttpResponse addHeader(String key, String value){
@@ -39,12 +39,31 @@ public class HttpResponse {
 
     //filePath를 입력받아 그 file을 전송 하는 메서드
     public void forward(String filePath,FileType fileType) throws IOException {
-        byte[] body = Files.readAllBytes(Path.of("./webapp", filePath));
+        byte[] body;
+        String head;
+        try{
+            body = Files.readAllBytes(Path.of("./webapp", filePath));
+            head = "HTTP/1.1 200 OK \r\n";
+        }catch (NoSuchFileException e){
+            body = "파일을 찾을 수 없습니다".getBytes(StandardCharsets.UTF_8);
+            head = "HTTP/1.1 404 Not Found \r\n";
+            fileType = FileType.HTML;
+        }
+
         headers.put("Content-Type", fileType.getContentType());
         headers.put("Content-Length", Integer.toString(body.length));
 
-        sendResponse("HTTP/1.1 200 OK \r\n", body);
+        sendResponse(head, body);
     }
+    public void forward(byte[] body) throws IOException {
+        String head="HTTP/1.1 200 OK \r\n";
+
+        headers.put("Content-Type", "text/html");
+        headers.put("Content-Length", Integer.toString(body.length));
+
+        sendResponse(head, body);
+    }
+
 
 
     private void sendResponse(String head, byte[] body) throws IOException {

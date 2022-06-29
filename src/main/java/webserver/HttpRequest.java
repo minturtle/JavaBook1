@@ -1,4 +1,7 @@
-package util;
+package webserver;
+
+import util.HttpRequestUtils;
+import util.IOUtils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -14,6 +17,7 @@ public class HttpRequest {
     private String uri;
     private Map<String, String> body;
     private StringBuilder sb;
+    private Map<String, String> cookies;
 
     public HttpRequest(InputStream request)throws IOException {
         BufferedReader requestReader = new BufferedReader(new InputStreamReader(request));
@@ -46,6 +50,9 @@ public class HttpRequest {
         while(true){
             line = requestReader.readLine();
             if(line == null || line.isEmpty()) break;
+            if(line.contains("Cookie")){
+                cookies = HttpRequestUtils.parseCookies(line.substring(8));
+            }
             sb.append(line).append("\r\n");
             String[] header = line.split(": ");
             headerMap.put(header[0].trim(), header[1].trim());
@@ -71,6 +78,9 @@ public class HttpRequest {
         return uri;
     }
 
+    public String getCookie(String key){
+        return cookies.get(key);
+    }
     @Override
     public String toString() {
         return sb.toString();

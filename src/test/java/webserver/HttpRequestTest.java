@@ -1,6 +1,6 @@
-package util;
-import org.assertj.core.api.Assertions.*;
+package webserver;
 import org.junit.Test;
+import webserver.HttpRequest;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -33,4 +33,11 @@ public class HttpRequestTest {
         assertThat(req.getParameter("password")).isEqualTo("1111");
     }
 
+    @Test
+    public void 쿠키_파싱() throws IOException{
+        InputStream in = new FileInputStream("./src/main/resources/http_cookie.txt");
+        HttpRequest req = new HttpRequest(in);
+
+        assertThat(req.getCookie("isLogined")).isEqualTo("false");
+    }
 }
